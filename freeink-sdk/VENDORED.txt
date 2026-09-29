@@ -1,0 +1,1 @@
+Vendored from https://github.com/Free-Ink/freeink-sdk at commit e41f683ee8b6d4f85f1684c259dc9bde93341f91 (MIT). Only the libraries this firmware uses are included.

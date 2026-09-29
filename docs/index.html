@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e9eae6">
+<title>X4 Todo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #e9eae6;
+    --panel: #f7f7f5;
+    --ink: #000;
+    --muted: #62645f;
+    --rule: #c3c5bf;
+    --blue: #1f3fbf;
+    --warn: #9a2b12;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#1b1c1a; --panel:#262724; --ink:#f1f1ee; --muted:#a3a59f; --rule:#43453f; --blue:#8ea3ff; --warn:#ff9b7d; }
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font: 17px/1.45 "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 34rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+  h1 { font-size: 2rem; line-height: 1.1; margin: 0; letter-spacing: -0.01em; }
+  #count { color: var(--muted); }
+
+  .link { display: flex; align-items: center; gap: .75rem; margin: 1rem 0 1.25rem; min-height: 2.75rem; }
+  .dot { width: .7rem; height: .7rem; border-radius: 50%; border: 2px solid var(--muted); flex: none; }
+  .link[data-state="on"] .dot { background: var(--blue); border-color: var(--blue); }
+  .link[data-state="busy"] .dot { border-color: var(--blue); border-style: dashed; }
+  #linkText { flex: 1; color: var(--muted); }
+  .link[data-state="on"] #linkText { color: var(--ink); }
+
+  button {
+    font: inherit; color: inherit; background: none; border: 2px solid var(--ink);
+    border-radius: 6px; padding: .45rem .9rem; cursor: pointer; min-height: 2.75rem;
+  }
+  button.primary { background: var(--ink); color: var(--paper); }
+  button:disabled { opacity: .4; cursor: default; }
+  :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+  /* The list is drawn like the device's screen: a plain panel with ruled rows. */
+  .screen { background: var(--panel); border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; }
+  form { display: flex; gap: .5rem; padding: .75rem; border-bottom: 3px solid var(--ink); }
+  input[type=text] {
+    flex: 1; min-width: 0; font: inherit; color: var(--ink); background: transparent;
+    border: 0; border-bottom: 2px solid var(--rule); padding: .4rem .1rem; border-radius: 0;
+  }
+  input[type=text]:focus { outline: none; border-bottom-color: var(--blue); }
+
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; align-items: center; gap: .6rem; padding: .55rem .75rem; border-bottom: 1px solid var(--rule); }
+  li:last-child { border-bottom: 0; }
+  .check {
+    appearance: none; width: 1.5rem; height: 1.5rem; flex: none; margin: 0;
+    border: 3px solid var(--ink); border-radius: 3px; display: grid; place-content: center; cursor: pointer;
+  }
+  .check:checked::after { content: ""; width: .7rem; height: .38rem; border: solid var(--ink); border-width: 0 0 3px 3px; transform: translateY(-2px) rotate(-45deg); }
+  .text { flex: 1; min-width: 0; overflow-wrap: anywhere; cursor: text; }
+  li.done .text { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--muted); }
+  .tools { display: flex; gap: .15rem; }
+  .tools button { border: 0; min-height: 2.5rem; min-width: 2.5rem; padding: 0; color: var(--muted); font-size: 1.1rem; }
+  .tools button:hover { color: var(--ink); }
+  .empty { padding: 1.5rem .75rem; color: var(--muted); }
+
+  .below { display: flex; justify-content: space-between; align-items: center; margin-top: .75rem; color: var(--muted); font-size: .9rem; gap: 1rem; }
+  .notice { border-left: 4px solid var(--warn); padding: .5rem .75rem; margin: 1rem 0; background: var(--panel); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>To do</h1>
+    <span id="count"></span>
+  </header>
+
+  <div class="link" id="link" data-state="off">
+    <span class="dot" aria-hidden="true"></span>
+    <span id="linkText" role="status">Not connected</span>
+    <button id="connect" class="primary">Connect</button>
+  </div>
+
+  <p class="notice" id="unsupported" hidden>
+    This browser can't use Bluetooth. On Android, open this page in Chrome. On iPhone, use the Bluefy browser.
+  </p>
+
+  <section class="screen" aria-label="Tasks">
+    <form id="addForm">
+      <input id="newTask" type="text" maxlength="120" placeholder="Add a task" aria-label="New task" autocomplete="off" disabled>
+      <button id="addBtn" class="primary" disabled>Add</button>
+    </form>
+    <ul id="list"></ul>
+  </section>
+
+  <div class="below">
+    <span id="capacity"></span>
+    <button id="clearDone" disabled>Remove done</button>
+  </div>
+</main>
+
+<script>
+const SERVICE = "7d2a0001-5b1e-4c8e-9a51-2f3a8c9e0b01";
+const CMD     = "7d2a0002-5b1e-4c8e-9a51-2f3a8c9e0b01";
+const STATE   = "7d2a0003-5b1e-4c8e-9a51-2f3a8c9e0b01";
+
+const $ = (id) => document.getElementById(id);
+let device = null, cmdChr = null;
+let tasks = [], maxTasks = 40, rx = "";
+let queue = Promise.resolve();
+
+// The X4's fonts only cover plain ASCII, so tidy text before sending.
+function toDeviceText(s) {
+  return s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-").replace(/\u2026/g, "...")
+    .replace(/[^\x20-\x7e]/g, "?").trim().slice(0, 120);
+}
+
+function setLink(state, text) {
+  $("link").dataset.state = state;
+  $("linkText").textContent = text;
+  $("connect").hidden = state !== "off";
+  const on = state === "on";
+  for (const id of ["newTask", "addBtn", "clearDone"]) $(id).disabled = !on;
+  render();
+}
+
+// GATT allows one operation at a time, so writes go through a queue.
+function send(obj) {
+  if (!cmdChr) return;
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  queue = queue.then(() => cmdChr.writeValueWithResponse(bytes)).catch((e) => console.warn(e));
+  return queue;
+}
+
+function onChunk(ev) {
+  rx += new TextDecoder().decode(ev.target.value);
+  if (!rx.endsWith("\n")) return;
+  try {
+    const state = JSON.parse(rx);
+    tasks = state.tasks || [];
+    maxTasks = state.max || maxTasks;
+    render();
+  } catch (e) { console.warn("Bad state from device", e); }
+  rx = "";
+}
+
+async function connect() {
+  try {
+    setLink("busy", "Choose X4-Todo in the list");
+    device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE] }] });
+    device.addEventListener("gattserverdisconnected", onDisconnected);
+    await openLink();
+  } catch (e) {
+    setLink("off", e.name === "NotFoundError" ? "Not connected" : "Couldn't connect. Wake the X4 with its power button and try again.");
+  }
+}
+
+async function openLink() {
+  setLink("busy", "Connecting...");
+  const server = await device.gatt.connect();
+  const svc = await server.getPrimaryService(SERVICE);
+  cmdChr = await svc.getCharacteristic(CMD);
+  const stateChr = await svc.getCharacteristic(STATE);
+  rx = "";
+  stateChr.addEventListener("characteristicvaluechanged", onChunk);
+  await stateChr.startNotifications();
+  setLink("on", "Connected to " + (device.name || "X4"));
+  send({ op: "get" });
+}
+
+function onDisconnected() {
+  cmdChr = null;
+  setLink("off", "Disconnected. The X4 may be asleep; press its power button, then connect.");
+}
+
+function render() {
+  const list = $("list");
+  list.replaceChildren();
+  const on = $("link").dataset.state === "on";
+  const done = tasks.filter((t) => t.done).length;
+  $("count").textContent = tasks.length ? `${done} of ${tasks.length} done` : "";
+  $("capacity").textContent = on ? `${tasks.length} / ${maxTasks} tasks` : "";
+
+  if (!tasks.length) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = on ? "Nothing to do. Add your first task above." : "Connect to your X4 to see its list.";
+    list.append(li);
+    return;
+  }
+
+  tasks.forEach((t, i) => {
+    const li = document.createElement("li");
+    if (t.done) li.classList.add("done");
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.className = "check"; cb.checked = t.done; cb.disabled = !on;
+    cb.setAttribute("aria-label", `Mark "${t.text}" ${t.done ? "not done" : "done"}`);
+    cb.onchange = () => send({ op: "toggle", id: t.id });
+
+    const text = document.createElement("span");
+    text.className = "text"; text.textContent = t.text;
+    text.title = "Tap to edit";
+    text.onclick = () => {
+      if (!on) return;
+      const next = prompt("Edit task", t.text);
+      if (next !== null && toDeviceText(next)) send({ op: "edit", id: t.id, text: toDeviceText(next) });
+    };
+
+    const tools = document.createElement("span");
+    tools.className = "tools";
+    const mk = (label, glyph, fn, disabled) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = glyph; b.setAttribute("aria-label", label);
+      b.disabled = !on || disabled; b.onclick = fn; return b;
+    };
+    tools.append(
+      mk("Move up", "\u2191", () => send({ op: "move", id: t.id, to: i - 1 }), i === 0),
+      mk("Move down", "\u2193", () => send({ op: "move", id: t.id, to: i + 1 }), i === tasks.length - 1),
+      mk("Delete", "\u2715", () => send({ op: "del", id: t.id }), false),
+    );
+
+    li.append(cb, text, tools);
+    list.append(li);
+  });
+}
+
+$("addForm").onsubmit = (e) => {
+  e.preventDefault();
+  const text = toDeviceText($("newTask").value);
+  if (!text) return;
+  if (tasks.length >= maxTasks) { alert(`The X4 holds up to ${maxTasks} tasks. Remove some first.`); return; }
+  send({ op: "add", text });
+  $("newTask").value = "";
+};
+$("clearDone").onclick = () => send({ op: "clear" });
+$("connect").onclick = () => (device && !device.gatt.connected ? openLink().catch(() => connect()) : connect());
+
+if (!navigator.bluetooth) { $("unsupported").hidden = false; $("connect").disabled = true; }
+render();
+</script>
+</body>
+</html>
